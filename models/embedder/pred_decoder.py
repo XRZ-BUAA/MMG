@@ -1,7 +1,4 @@
-'''
-尝试让模型分路输出预测手物距离之类的信息
-需要 decoder
-'''
+
 import torch
 import torch.nn as nn
 
@@ -71,35 +68,35 @@ class res_decoder(nn.Module):
         self.dec_rb4 = ResBlock(n_neurons//2, n_neurons, n_neurons)
         self.dec_pose = nn.Linear(n_neurons, dim_out)
 
-        # self.dec_dist = nn.Linear(n_neurons, dim_out)
+
 
         self.dout = nn.Dropout(p=drop_out, inplace=False)
         self.sig = nn.Sigmoid()
 
     def forward(self, x):
         
-        # [bs, seq, dim_in] -> [bs*seq, dim_in]
+
         x = self.conv(x)
         bs, seq = x.shape[:2]
         X0 = self.dec_bn1(x.reshape(bs*seq, -1))
         
-        # [bs*seq, dim_in] -> [bs*seq, n_neurons]
+
         X  = self.dec_rb1(X0, True)
         X  = self.dout(X)
         
-        # [bs*seq, n_neurons + dim_in] -> [bs*seq, n_neurons//2]
+
         X  = self.dec_rb2(torch.cat([X0, X], dim=-1), True)
-        # X  = self.dec_rb2(X)
+
         X = self.dout(X)
         
-        # [bs*seq, n_neurons//2] -> [bs*seq, n_neurons//2]
+
         X  = self.dec_rb3(X)
         X = self.dout(X)
         
-        # [bs*seq, n_neurons//2] -> [bs*seq, n_neurons]
+
         X = self.dec_rb4(X)
 
-        # [bs*seq, n_neurons] -> [bs, seq, dim_out]
+
         pose = self.dec_pose(X).reshape(bs, seq, -1)
 
         return pose 

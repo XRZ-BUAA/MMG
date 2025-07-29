@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# from GRIP
+
 class ResBlock(nn.Module):
 
     def __init__(self,
@@ -19,13 +19,13 @@ class ResBlock(nn.Module):
         self.fc1 = nn.Linear(Fin, n_neurons)
         if norm:
             self.ln1 = nn.LayerNorm([n_seq, n_neurons])
-        # self.bn1 = nn.BatchNorm1d(n_neurons)
-        # self.bn1 = nn.BatchNorm1d(n_seq)
+
+
 
         self.fc2 = nn.Linear(n_neurons, Fout)
         if norm:
             self.ln2 = nn.LayerNorm([n_seq, Fout])
-        # self.bn2 = nn.BatchNorm1d(n_seq)
+
 
         if Fin != Fout:
             self.fc3 = nn.Linear(Fin, Fout)
@@ -60,7 +60,7 @@ class ObjEmbedder(nn.Module):
         
         if norm:
             self.dec_ln1 = nn.LayerNorm([in_seq, dim_obj_info])
-        # self.dec_bn1 = nn.BatchNorm1d(seq_len)  # normalize
+
         self.dec_rb1 = ResBlock(dim_obj_info, n_neurons, in_seq)
         self.dec_rb2 = ResBlock(n_neurons + dim_obj_info, n_neurons//2, in_seq)
         self.dec_rb3 = ResBlock(n_neurons//2, n_neurons//2, in_seq)
@@ -75,12 +75,12 @@ class ObjEmbedder(nn.Module):
         X  = self.dec_rb1(X0, True)
         X  = self.dout(X)
         X  = self.dec_rb2(torch.cat([X0, X], dim=-1), True)
-        # X  = self.dec_rb2(X)
+
         X = self.dout(X)
         X  = self.dec_rb3(X)
         X = self.dout(X)
         X = self.dec_rb4(X)
         X = self.conv(X)
-        # pose = self.sig(self.dec_pose(X))
+
         emb = self.dec_out(X)
         return emb

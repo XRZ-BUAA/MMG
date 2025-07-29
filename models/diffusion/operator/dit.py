@@ -1,4 +1,4 @@
-# DiT Block
+
 import math
 import torch
 import torch.nn as nn
@@ -12,9 +12,7 @@ def modulate(x, shift, scale):
 
 
 class DiTBlock(nn.Module):
-    """
-    A DiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
-    """
+    
 
     def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
         super().__init__()
@@ -36,11 +34,9 @@ class DiTBlock(nn.Module):
         return x
  
     
-# TODO: 出于蒸馏需要修改该类
+
 class TimestepEmbedder(nn.Module):
-    """
-    Embeds scalar timesteps into vector representations.
-    """
+    
 
     def __init__(
         self, hidden_size, frequency_embedding_size: int=256,
@@ -54,7 +50,7 @@ class TimestepEmbedder(nn.Module):
         )
         self.frequency_embedding_size = frequency_embedding_size
         
-        # addition
+
         if cond_dim is not None:
             self.cond_fc = nn.Linear(cond_dim, frequency_embedding_size, bias=False)
             if zero_init_cond:
@@ -64,15 +60,8 @@ class TimestepEmbedder(nn.Module):
 
     @staticmethod
     def timestep_embedding(t, dim, max_period=10000):
-        """
-        Create sinusoidal timestep embeddings.
-        :param t: a 1-D Tensor of N indices, one per batch element.
-                          These may be fractional.
-        :param dim: the dimension of the output.
-        :param max_period: controls the minimum frequency of the embeddings.
-        :return: an (N, D) Tensor of positional embeddings.
-        """
-        # https://github.com/openai/glide-text2im/blob/main/glide_text2im/nn.py
+        
+
         half = dim // 2
         freqs = torch.exp(
             -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
@@ -86,7 +75,7 @@ class TimestepEmbedder(nn.Module):
     def forward(self, t, timestep_cond: Optional[torch.Tensor]=None):
         t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
         
-        # addition
+
         if timestep_cond is not None:
             t_freq = t_freq + self.cond_fc(timestep_cond)
             

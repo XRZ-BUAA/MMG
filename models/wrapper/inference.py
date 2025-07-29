@@ -1,7 +1,4 @@
-'''
-推理网络的封装
-需要按照格式编写 config 文件
-'''
+
 import os
 import os.path as osp
 import torch
@@ -17,9 +14,7 @@ HAND_DIM = 15
 
 
 class BaseInference(nn.Module):
-    '''
-    推理网络的基类
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
@@ -27,11 +22,11 @@ class BaseInference(nn.Module):
         self.model_cfg = model_cfg
         self.cpt_paths = cpt_paths
         self.logger = None
-        # self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        # models = self.load_models()
-        # for key, value in models.items():
-        #     setattr(self, key, value)
+
+
+
+
         
     def set_logger(self, logger: Optional[logging.Logger]):
         self.logger = logger
@@ -55,7 +50,7 @@ class BaseInference(nn.Module):
             else:
                 print("=> loading model '{}'".format(cpt_file))
             checkpoint = torch.load(cpt_file, map_location=lambda storage, loc: storage)
-            # checkpoint = torch.load(cpt_file, map_location='cpu')
+
             model.load_state_dict(checkpoint['state_dict'] if 'state_dict' in checkpoint \
                 else checkpoint)
             model = model # .to(self.device)
@@ -70,9 +65,7 @@ class BaseInference(nn.Module):
     
 
 class TorsoInference(BaseInference):
-    '''
-    躯干动作生成网络，通过稀疏条件生成躯干动作
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
@@ -85,16 +78,14 @@ class TorsoInference(BaseInference):
             body_latents = self.body_diffusion.diffusion_reverse(
                 sparse.reshape(bs, seq, 3, 18)
             )
-            # body_mat = self.body_vae.decode(body_latents, bs, seq).reshape(bs, seq, BODY_DIM, 6)
+
             body_mat = self.body_vae.decode(body_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, BODY_DIM, 6)
 
         return body_mat
         
 
 class WholeBodyInference(BaseInference):
-    '''
-    阶段一网络，没有物体信息输入，通过稀疏条件生成全身动作（包括两手）
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
@@ -102,15 +93,13 @@ class WholeBodyInference(BaseInference):
 
 
     def forward(self, sparse):
-        '''
-        输入稀疏条件，输出全身动作
-        '''
+        
         bs, seq = sparse.shape[:2]
         with torch.no_grad():
             body_latents = self.body_diffusion.diffusion_reverse(
                 sparse.reshape(bs, seq, 3, 18)
             )
-            # print(body_latents.shape)
+
             hand_latents = self.hand_diffusion.diffusion_reverse(
                 sparse.reshape(bs, seq, 3, 18),
                 body_latents
@@ -119,9 +108,9 @@ class WholeBodyInference(BaseInference):
             left_latents = hand_latents[..., :last_dim//2]
             right_latents = hand_latents[..., last_dim//2:]
             
-            # body_mat = self.body_vae.decode(body_latents, bs, seq).reshape(bs, seq, BODY_DIM, 6)
-            # lhand_mat = self.lhand_vae.decode(left_latents, bs, seq).reshape(bs, seq, HAND_DIM, 6)
-            # rhand_mat = self.rhand_vae.decode(right_latents, bs, seq).reshape(bs, seq, HAND_DIM, 6)
+
+
+
             body_mat = self.body_vae.decode(body_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, BODY_DIM, 6)
             lhand_mat = self.lhand_vae.decode(left_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, HAND_DIM, 6)
             rhand_mat = self.rhand_vae.decode(right_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, HAND_DIM, 6)
@@ -132,18 +121,14 @@ class WholeBodyInference(BaseInference):
     
 
 class ControlTorsoInference(BaseInference):
-    '''
-    阶段二躯干网络，加入物体信息
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
         super().__init__(model_cfg, cpt_paths)
 
     def forward(self, sparse, control_cond=None):
-        '''
-        输入稀疏条件和物体信息，输出控制躯干的动作
-        '''
+        
         bs, seq = sparse.shape[:2]
         with torch.no_grad():
             body_latents = self.body_diffusion.diffusion_reverse(
@@ -157,9 +142,7 @@ class ControlTorsoInference(BaseInference):
     
 
 class ControlWholeBodyInference(BaseInference):
-    '''
-    阶段二全身网络，加入物体信息
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
@@ -167,9 +150,7 @@ class ControlWholeBodyInference(BaseInference):
 
     def forward(self, sparse, obj_info=None, mask_sparse=False, *args,
                 **kwargs):
-        '''
-        输入稀疏条件和物体信息，输出控制全身动作
-        '''
+        
         bs, seq = sparse.shape[:2]
         with torch.no_grad():
             body_latents = self.body_diffusion.diffusion_reverse(
@@ -185,9 +166,9 @@ class ControlWholeBodyInference(BaseInference):
             left_latents = hand_latents[..., :last_dim//2]
             right_latents = hand_latents[..., last_dim//2:]
             
-            # body_mat = self.body_vae.decode(body_latents, bs, seq).reshape(bs, seq, BODY_DIM, 6)
-            # lhand_mat = self.lhand_vae.decode(left_latents, bs, seq).reshape(bs, seq, HAND_DIM, 6)
-            # rhand_mat = self.rhand_vae.decode(right_latents, bs, seq).reshape(bs, seq, HAND_DIM, 6)
+
+
+
             body_mat = self.body_vae.decode(body_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, BODY_DIM, 6)
             lhand_mat = self.lhand_vae.decode(left_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, HAND_DIM, 6)
             rhand_mat = self.rhand_vae.decode(right_latents, sparse.reshape(bs, seq, 54)).reshape(bs, seq, HAND_DIM, 6)
@@ -198,19 +179,14 @@ class ControlWholeBodyInference(BaseInference):
     
 
 class ControlHandInference(BaseInference):
-    '''
-    身体没有controlnet
-    阶段二手网络，加入物体信息
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
         super().__init__(model_cfg, cpt_paths)
 
     def forward(self, sparse, control_cond=None):
-        '''
-        输入稀疏条件和物体信息，输出控制手的动作
-        '''
+        
         bs, seq = sparse.shape[:2]
         with torch.no_grad():
             body_latents = self.body_diffusion.diffusion_reverse(
@@ -234,28 +210,26 @@ class ControlHandInference(BaseInference):
     
     
 class WholeBodyCtFInference(BaseInference):
-    '''
-    Coarse-to-Fine 模型，身体+双手 latent 合并细化
-    '''
+    
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig
         ):
         super().__init__(model_cfg, cpt_paths)
-        # assert hasattr(self, 'body_vae') and \
-        #     hasattr(self, 'lhand_vae') and \
-        #     hasattr(self, 'rhand_vae') and \
-        #     hasattr(self, 'body_diffusion') and \
-        #     hasattr(self, 'hand_diffusion') and \
-        #     hasattr(self, 'ctf_model'), \
-        #     "Whole Body CTF Inference Network must have body_vae, lhand_vae, \
-        #     rhand_vae, body_diffusion, hand_diffusion and ctf_model"
+
+
+
+
+
+
+
+
         
     def forward(self, sparse, obj_info=None, mask_sparse=False, **kwargs):
         
         bs, seq = sparse.shape[:2]
         sparse_coef = 0.0 if mask_sparse else 1.0
         with torch.no_grad():
-            # 阶段一推理
+
             ori_body_latents = self.body_diffusion.diffusion_reverse(
                 sparse.reshape(bs, seq, 3, 18)
             )
@@ -267,8 +241,8 @@ class WholeBodyCtFInference(BaseInference):
             hand_dim = ori_hand_latents.shape[-1]
             
             if obj_info is None:
-                # 没给物体信息，直接将阶段一 diffusion 生成的 latent feature 给
-                # 三个vae
+
+
                 lhand_latent = ori_hand_latents[..., :hand_dim//2]
                 rhand_latent = ori_hand_latents[..., hand_dim//2:]
                 body_mat = self.body_vae.decode(
@@ -281,8 +255,8 @@ class WholeBodyCtFInference(BaseInference):
                     rhand_latent, sparse.reshape(bs, seq, 54)
                     ).reshape(bs, seq, HAND_DIM, 6)
             else:
-                # 给了物体信息，将阶段一的输出作为阶段二的输入，得到阶段二的 latent
-                # feature，然后给三个vae
+
+
                 ori_latents = torch.cat([ori_body_latents, ori_hand_latents], 
                                     dim=-1)   
             
@@ -306,7 +280,7 @@ class WholeBodyCtFInference(BaseInference):
         full_mat = torch.cat([body_mat, lhand_mat, rhand_mat], dim=-2)
         return full_mat
 
-# TODO: Coarse-to-fine (in latent space) inference (Chunk Version)
+
 class BodyCtFInference(BaseInference):
     def __init__(
             self, model_cfg: DictConfig, cpt_paths: DictConfig            
@@ -338,10 +312,9 @@ class BodyCtFInference(BaseInference):
                     latent, sparse.reshape(bs, seq, 54)
                     ).reshape(bs, seq, BODY_DIM, 6)
                 
-            # 为了方便身体模块测试，懒得改测试脚本，干脆就直接这样
+
             hands_mat = torch.zeros(bs, seq, HAND_DIM * 2, 6, device=device)
             full_mat = torch.cat([body_mat, hands_mat], dim=-2)
         return full_mat
         
 
-# TODO: Coarse-to-fine (on original motion) inference

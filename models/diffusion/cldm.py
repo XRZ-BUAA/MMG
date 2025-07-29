@@ -27,10 +27,10 @@ class ControlMD(nn.Module):
         self.sparse_encoder_cfg = sparse_encoder_cfg
         self.controlnet_cfg = controlnet_cfg
         
-        # 原始 denoiser ，需冻结参数
+
         self.denoiser = instantiate_from_config(self.denoiser_cfg)
         self.scheduler = instantiate_from_config(self.scheduler_cfg)
-        # 原始模型稀疏输入encoder，冻结参数
+        
         self.sparse_encoder = instantiate_from_config(self.sparse_encoder_cfg)
         
         self.is_controlnet = getattr(model_cfg, 'is_controlnet', False)
@@ -38,7 +38,7 @@ class ControlMD(nn.Module):
         if self.is_controlnet:
             assert self.controlnet_cfg is not None, "Controlnet is enabled \
             but no config is provided."
-            # ControlNet需加载原始 denoiser 的参数作为可训练副本
+            
             self.controlnet = instantiate_from_config(self.controlnet_cfg)
             self.control_type = self.controlnet.control_type
         else:
@@ -196,7 +196,3 @@ class ControlDenoiser(nn.Module):
         return x
         
         
-# TODO: 交叉版 Denoiser：每过一个 DiT Block，原始 Denoiser 的输出
-# 和 ControlNet 输出相加，作为下一个 DiT Block 的输入。
-class CrossControlDenoiser(nn.Module):
-    pass

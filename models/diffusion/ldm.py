@@ -1,4 +1,4 @@
-# Copy from SAGE
+
 
 
 import torch
@@ -28,7 +28,7 @@ class MotionDiffusion(nn.Module):
         init_noise_sigma=0.01,
         obj_emb_cfg = None,
         obj_strategy = 'add',
-        # imitate MotionLCM
+
         guidance_scale: Optional[Union[float, str]] = None,
         lcm_wmin: Optional[list] = None,
         lcm_num_ddim_timesteps: Optional[int] = None,
@@ -48,10 +48,10 @@ class MotionDiffusion(nn.Module):
         self.mask_num = mask_num
         self.init_noise_sigma = init_noise_sigma
 
-        # 目前的想法是把左右手的latent feature拼接后输入
+
         self.e_dim = e_dim
 
-        # imitate MotionLCM
+
         self.lcm_wmin = lcm_wmin
         self.lcm_num_ddim_timesteps = lcm_num_ddim_timesteps
         self.guidance_scale = guidance_scale
@@ -60,7 +60,7 @@ class MotionDiffusion(nn.Module):
                 scheduler_config.num_inference_timesteps
             ]
 
-        # 直接在第一阶段用obj_info，把obj_info嵌入到和sparse嵌入相同的维数，然后相加.
+
         self.obj_emb = None
         if obj_emb_cfg is not None:
             self.obj_emb = ObjEmbedder(**obj_emb_cfg)
@@ -70,10 +70,10 @@ class MotionDiffusion(nn.Module):
         elif obj_strategy != 'add':
             raise NotImplementedError("unknown strategy: ", obj_strategy)
 
-    # 去噪过程
+
     def diffusion_reverse(self, sparse, body_latent=None, obj_info = None):
         device = sparse.device
-        # print(device)
+
         bs, seq = sparse.shape[:2]
         sparse = sparse.reshape(bs, seq, 3, 18)
         
@@ -83,7 +83,7 @@ class MotionDiffusion(nn.Module):
 
         bs, seq, hidden_dim = cond.shape
 
-        # 如果提供了物体信息.
+
         if obj_info is not None and self.obj_emb is not None:
             obj_emb_cond = self.obj_emb(obj_info)
             if self.obj_strategy == 'add':
@@ -92,8 +92,8 @@ class MotionDiffusion(nn.Module):
                 cond = torch.concat([cond, obj_emb_cond], dim=-1)
                 cond = self.fuse_feat(cond)
 
-        # latents = torch.randn((bs, seq // 2, 384)).to(device).float()
-        # latents = torch.randn((bs, seq // 2, self.e_dim)).to(device).float()
+
+
         latents = torch.randn((bs, 1, self.e_dim)).to(device).float() if body_latent is None else \
                   torch.randn((bs, 1, self.e_dim * self.denoiser.hand_dim_multiple)).to(device).float()
         latents = latents * self.init_noise_sigma
@@ -112,9 +112,9 @@ class MotionDiffusion(nn.Module):
                 embedding_dim=self.denoiser.time_cond_dim
             ).to(device=device, dtype=latents.dtype)
             
-        # reverse
+
         for i, t in enumerate(timesteps):
-            # with torch.no_grad():
+
             x0_pred = self.denoiser(latents, t.expand(latents.shape[0], ), 
                             cond, body_latent, timestep_cond=timestep_cond)
             latents = self.scheduler.step(x0_pred, timesteps[i], latents,
@@ -123,10 +123,10 @@ class MotionDiffusion(nn.Module):
 
 
     def forward(self, motion_latents, sparse, body_latent=None, obj_info = None):
-        # latents:(bs, seq*4, 384)
-        # sparse:(bs, seq, 3, 18)
+
+
         bs, seq = sparse.shape[:2]
-        # print(sparse.shape)
+
         sparse = sparse.reshape(bs, seq, 3, 18)
         device = sparse.device
         cond_inter = self.cond_encoder(sparse.flatten(0, 1))  # (bs*seq, 22, 18)
@@ -184,9 +184,9 @@ class MotionDiffusion(nn.Module):
 
         return ori_motion_pred
 
-# 去噪器
-# 由于双手有两个vae，但是只有一个diffusion，所以维度上可能得做一些设计
-# 如果 384*2 太大，就大多数层调成384，最后输出的时候是384*2就行
+
+
+
 class Denoiser(nn.Module):
     def __init__(
         self, 
@@ -196,7 +196,7 @@ class Denoiser(nn.Module):
         e_dim,
         body_part='body',
         hand_dim_multiple = 2,   # 为了考虑双手二合一vae的情况
-        # imitate MotionLCM
+
         time_cond_dim: Optional[int] = None,
         *args,
         **kwargs
@@ -207,31 +207,31 @@ class Denoiser(nn.Module):
         self.e_dim = e_dim
         self.body_part = body_part
         self.time_cond_dim = time_cond_dim
-        # self.embed_timestep = TimestepEmbedder(self.latent_dim)
+
         self.embed_timestep = TimestepEmbedder(self.latent_dim, 
                                     cond_dim=time_cond_dim)
-        # self.sparse_up_conv = nn.Conv1d(self.seq_len, self.seq_len // 2, 1)
+
         self.sparse_up_conv = nn.Conv1d(self.seq_len, 1, 1)
         self.num_layers = num_layers
 
         if self.body_part == 'body':
-            # self.align_net = nn.Conv1d(self.seq_len // 2, self.seq_len // 2, 1) 
+
             self.align_net = nn.Conv1d(1, 1, 1) 
-            # self.down_dim = nn.Linear(self.latent_dim + 384, self.latent_dim)
+
             self.down_dim = nn.Linear(self.latent_dim + e_dim, self.latent_dim)
-            # self.last = nn.Linear(self.latent_dim, 384)
+
             self.last = nn.Linear(self.latent_dim, e_dim)
             
         else:
             self.hand_dim_multiple = hand_dim_multiple
-            # self.hand_dim_init = nn.Linear(384 * 2, 384)    # 这个维度得改
+
             self.hand_dim_init = nn.Linear(e_dim * (hand_dim_multiple+1), e_dim * 2)    # 384 * 2 会不会太大，先尝试一下
-            # self.body_align_net = nn.Conv1d(self.seq_len // 2, self.seq_len // 2, 1)
+
             self.body_align_net = nn.Conv1d(1, 1, 1)
             self.down_dim = nn.Linear(self.latent_dim + e_dim * 2, self.latent_dim)
             self.last = nn.Linear(self.latent_dim, e_dim * hand_dim_multiple)
 
-        # self.down_dim = nn.Linear(self.latent_dim + 384, self.latent_dim)
+
 
         self.blocks = nn.ModuleList([
             DiTBlock(self.latent_dim, 8, mlp_ratio=4) for _ in range(num_layers)
@@ -239,29 +239,29 @@ class Denoiser(nn.Module):
         nn.init.normal_(self.embed_timestep.mlp[0].weight, std=0.02)
         nn.init.normal_(self.embed_timestep.mlp[2].weight, std=0.02)
 
-        # self.last = nn.Linear(self.latent_dim, 384) # 这个手部维度也得调
+
         
 
     def forward(self, noisy_latents, timesteps, cond, body_cond=None, 
                 timestep_cond=None):
-        # noisy_latents:(bs, seq*4, 512)
-        # timesteps:(bs, )
-        # cond:(bs, seq, 512)
+
+
+
         bs = cond.shape[0]
         timestep_emb = self.embed_timestep(timesteps, timestep_cond)  # (batch, 1, 512)
 
         cond_up4 = self.sparse_up_conv(cond)  # (bs, 4*seq, 512)
 
         if self.body_part == 'body':
-            # noisy_latents = self.align_net(noisy_latents)
-            # body_cond = self.body_align_net(body_cond)
+
+
 
             noisy_latents = self.align_net(noisy_latents)
             input_all = torch.cat((cond_up4, noisy_latents), dim=-1)
         else:
-            # print(body_cond.shape, noisy_latents.shape)
+
             latent_concat = torch.cat((body_cond, noisy_latents), dim=-1)
-            # print(latent_concat.shape)
+
             latent_feat = self.hand_dim_init(latent_concat)
             latent_feat = self.body_align_net(latent_feat)
             input_all = torch.cat((cond_up4, latent_feat), dim=-1)
@@ -280,10 +280,7 @@ class Denoiser(nn.Module):
 from models.vae.S2Wrapper.transformer_cvae import TransformerCVAE
 
 
-'''
-感觉怪怪的，我以为训练 hand ldm 的时候，使用的 body latent code 是 body ldm 根据 sparse 和 noisy latent code 降噪得到的，
-但看这个代码的意思，是通过 gt latent code 得到的
-'''
+
 
 class TrainBodyLDMWrapper(nn.Module):
     def __init__(self, body_vae:TransformerCVAE, body_diffusion:MotionDiffusion):
@@ -299,9 +296,7 @@ class TrainBodyLDMWrapper(nn.Module):
         self.body_diffusion.train()
 
     def forward(self, motion_gt, sparse, obj_info = None, diffusion_reverse = False):
-        '''
-        返回'gt'_body_latent, pred_body_latent. pred_body_motion, 如果motion_gt is None, gt_body_latent也是None  
-        '''
+        
         latent_gt = None
         if motion_gt is not None:
             latent_gt, *_ = self.body_vae.encode(motion_gt, sparse)
@@ -314,9 +309,7 @@ class TrainBodyLDMWrapper(nn.Module):
         return latent_gt, latent_pred, motion_pred
     
     def get_state_dict(self):
-        '''
-        只获取trainpart，即 body_diffusion的state_dict
-        '''
+        
         return self.body_diffusion.state_dict()
     
     def get_trained_params(self):
@@ -325,16 +318,14 @@ class TrainBodyLDMWrapper(nn.Module):
 
 class TrainHandLDMWrapper(nn.Module):
     def __init__(self, body_vae:TransformerCVAE, hands_vae:TransformerCVAE, body_diffusion:MotionDiffusion, hands_diffusion:MotionDiffusion):
-        '''
-        双手合一vae, 合一diffusion
-        '''
+        
         super().__init__()
         self.body_wrapper = TrainBodyLDMWrapper(body_vae, body_diffusion)
         self.hands_vae = hands_vae
         self.hands_diffusion = hands_diffusion
 
-        # if self.hands_diffusion.obj_emb is not None and body_diffusion.obj_emb is not None:
-        #     self.hands_diffusion.obj_emb.load_state_dict(body_diffusion.state_dict())
+
+
 
     def seteval(self):
         self.body_wrapper.eval()
@@ -347,10 +338,7 @@ class TrainHandLDMWrapper(nn.Module):
         self.hands_diffusion.train()
 
     def forward(self, body_motion_gt, lhand_motion_gt, rhand_motion_gt, sparse, obj_info = None, diffusion_reverse = False):
-        '''
-        所有输入的张量都应该是 (bs, seq, n_feat)  
-        返回 gt_hands_latent, pred_hands_latent, pred_body_motion, pred_hands_motion; 如果lhand, rhand中有None, 则返回的gt_hands_latent也是None  
-        '''
+        
         hands_latent_gt = None
         if lhand_motion_gt is not None and rhand_motion_gt is not None:
             hands_motion_gt = torch.concat([lhand_motion_gt, rhand_motion_gt], dim=-1)
@@ -368,9 +356,7 @@ class TrainHandLDMWrapper(nn.Module):
         return hands_latent_gt, hands_latent_pred, body_motion_pred, hands_motion_pred
     
     def get_state_dict(self):
-        '''
-        只获取trainpart，即 hands_diffusion的state_dict
-        '''
+        
         return self.hands_diffusion.state_dict()
     
     def get_trained_params(self):
@@ -381,16 +367,14 @@ class TrainHandLDMWrapper(nn.Module):
 
 
 def zero_module(module):
-    """
-    Zero out the parameters of a module and return it.
-    """
+    
     for p in module.parameters():
-        # p.detach().zero_()
+
         nn.init.zeros_(p)
     return module
 
 
-# Copy from mdm
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -406,7 +390,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # not used in the final model
+
         x = x + self.pe[:x.shape[0], :]
         return self.dropout(x)
 
@@ -436,7 +420,7 @@ class ControlNet(nn.Module):
         self.body_part = body_part
         self.use_zero_module = use_zero_module
 
-        # 控制条件嵌入
+
         self.d_model = d_model
         self.nhead = nhead
         self.timestep_embedder = TimestepEmbedder(latent_dim)
@@ -452,24 +436,24 @@ class ControlNet(nn.Module):
 
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, cond_nlayers)
         
-        # self.sparse_up_conv = nn.Conv1d(self.seq_len, self.seq_len // 2, 1)
+
         self.sparse_up_conv = nn.Conv1d(self.seq_len, 1, 1)
-        # self.zero_conv = zero_module(nn.Conv1d(self.seq_len // 2, self.seq_len // 2, 1))
-        # self.zero_block = nn.ModuleList([
-        #     zero_module(nn.Linear(self.latent_dim, self.latent_dim)) for _ in range(cond_nlayers)
-        # ])
+
+
+
+
         print(f"[{self.body_part} ControlNet]: use zero module: ", self.use_zero_module)
         self.zero_block = zero_module(nn.Linear(self.latent_dim, self.latent_dim)) if self.use_zero_module else \
                             nn.Linear(self.latent_dim, self.latent_dim)  # 注意zero block不一定zero init
         self.control_blocks = nn.Sequential(
-            # nn.BatchNorm1d(cond_dim),
+
             nn.Linear(cond_dim, d_model),
             self.pos_encoder,
             self.transformer_encoder,
             nn.Linear(d_model, latent_dim),
             self.sparse_up_conv,
             zero_module(nn.Linear(self.latent_dim, self.latent_dim)) if self.use_zero_module else nn.Linear(self.latent_dim, self.latent_dim)
-            # self.zero_conv
+
         )
         
         
@@ -478,7 +462,7 @@ class ControlNet(nn.Module):
             self.down_dim = nn.Linear(self.latent_dim + self.e_dim, self.latent_dim)
             
         else:
-            # self.hand_dim_init = nn.Linear(384 * 2, 384)    # 这个维度得改
+
             self.hand_dim_init = nn.Linear(self.e_dim * 3, self.e_dim * 2)    # 384 * 2 会不会太大，先尝试一下
             self.body_align_net = nn.Conv1d(1, 1, 1)
             self.down_dim = nn.Linear(self.latent_dim + self.e_dim * 2, self.latent_dim)
@@ -516,7 +500,7 @@ class ControlNet(nn.Module):
         x += guided_cond
 
         return self.zero_block(x) 
-        # return x
+
 
 
 class ControlMD(MotionDiffusion):
@@ -544,8 +528,8 @@ class ControlMD(MotionDiffusion):
         cond = self.cond_encoder2(cond_inter)  # (bs, seq, 384)
 
         bs, seq, hidden_dim = cond.shape
-        # latents = torch.randn((bs, seq // 2, 384)).to(device).float()
-        # latents = torch.randn((bs, seq // 2, self.e_dim)).to(device).float()
+
+
         latents = torch.randn((bs, 1, self.e_dim)).to(device).float() if body_latent is None else torch.randn((bs, 1, self.e_dim*2)).to(device).float()
         latents = latents * self.init_noise_sigma
         self.scheduler.set_timesteps(self.scheduler_cfg.num_inference_timesteps)
@@ -554,7 +538,7 @@ class ControlMD(MotionDiffusion):
         if "eta" in set(inspect.signature(self.scheduler.step).parameters.keys()):
             extra_step_kwargs["eta"] = self.scheduler_cfg.eta
             
-        # reverse
+
         for i, t in enumerate(timesteps):
             control_feat = None
             if control_input is not None:
@@ -581,7 +565,7 @@ class ControlMD(MotionDiffusion):
     ):
         bs, seq = sparse.shape[:2]
         sparse = sparse.reshape(bs, seq, 3, 18)
-        # device = sparse.device
+
         cond_inter = self.cond_encoder(sparse.flatten(0, 1))
         cond_inter = cond_inter.reshape(bs, seq, -1)  # (bs, seq, 22*18)
         cond = self.cond_encoder2(cond_inter)
@@ -613,8 +597,8 @@ class ControlDenoiser(Denoiser):
             cond_up4 = self.sparse_up_conv(cond)
 
             if self.body_part == 'body':
-                # noisy_latents = self.align_net(noisy_latents)
-                # body_cond = self.body_align_net(body_cond)
+
+
                 noisy_latents = self.align_net(noisy_latents)
                 input_all = torch.cat((cond_up4, noisy_latents), dim=-1)
             else:

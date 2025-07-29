@@ -1,7 +1,5 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Various positional encodings for the transformer.
-"""
+
+
 
 import numpy as np
 import torch
@@ -30,7 +28,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x):
-        # not used in the final model
+
         if self.batch_first:
             x = x + self.pe.permute(1, 0, 2)[:, : x.shape[1], :]
         else:
@@ -45,7 +43,7 @@ class NestedTensor(object):
         self.mask = mask
 
     def to(self, device):
-        # type: (Device) -> NestedTensor # noqa
+
         cast_tensor = self.tensors.to(device)
         mask = self.mask
         if mask is not None:
@@ -63,10 +61,7 @@ class NestedTensor(object):
 
 
 class PositionEmbeddingSine(nn.Module):
-    """
-    This is a more standard version of the position embedding, very similar to the one
-    used by the Attention is all you need paper, generalized to work on images.
-    """
+    
 
     def __init__(self, num_pos_feats=64, temperature=10000, normalize=False, scale=None):
         super().__init__()
@@ -106,9 +101,7 @@ class PositionEmbeddingSine(nn.Module):
 
 
 class PositionEmbeddingLearned(nn.Module):
-    """
-    Absolute pos embedding, learned.
-    """
+    
 
     def __init__(self, num_pos_feats=256):
         super().__init__()
@@ -153,7 +146,7 @@ class PositionEmbeddingSine1D(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # not used in the final model
+
         if self.batch_first:
             pos = self.pe.permute(1, 0, 2)[:, :x.shape[1], :]
         else:
@@ -166,10 +159,10 @@ class PositionEmbeddingLearned1D(nn.Module):
     def __init__(self, d_model, max_len=500, batch_first=False):
         super().__init__()
         self.batch_first = batch_first
-        # self.dropout = nn.Dropout(p=dropout)
+
 
         self.pe = nn.Parameter(torch.zeros(max_len, 1, d_model))
-        # self.pe = pe.unsqueeze(0).transpose(0, 1)
+
 
         self.reset_parameters()
 
@@ -177,19 +170,19 @@ class PositionEmbeddingLearned1D(nn.Module):
         nn.init.uniform_(self.pe)
 
     def forward(self, x):
-        # not used in the final model
+
         if self.batch_first:
             pos = self.pe.permute(1, 0, 2)[:, :x.shape[1], :]
         else:
             x = x + self.pe[:x.shape[0], :]
         return x
-        # return self.dropout(x)
+
 
 
 def build_position_encoding(N_steps,
                             position_embedding="sine",
                             embedding_dim="1D"):
-    # N_steps = hidden_dim // 2
+
     if embedding_dim == "1D":
         if position_embedding in ('v2', 'sine'):
             position_embedding = PositionEmbeddingSine1D(N_steps)
@@ -199,7 +192,7 @@ def build_position_encoding(N_steps,
             raise ValueError(f"not supported {position_embedding}")
     elif embedding_dim == "2D":
         if position_embedding in ('v2', 'sine'):
-            # TODO find a better way of exposing other arguments
+
             position_embedding = PositionEmbeddingSine(N_steps, normalize=True)
         elif position_embedding in ('v3', 'learned'):
             position_embedding = PositionEmbeddingLearned(N_steps)

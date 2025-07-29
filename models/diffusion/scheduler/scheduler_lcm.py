@@ -1,4 +1,4 @@
-# Copy from MotionLCM
+
 
 from typing import Optional, Union
 

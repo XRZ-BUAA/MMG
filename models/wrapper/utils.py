@@ -6,10 +6,7 @@ from glob import glob
 
 
 def resume_from_cpt(args, model:nn.Module, optimizer:torch.optim.Optimizer):
-    '''
-    需要的时候从 checkpoint 继续训练
-    返回epoch, global_step, optim
-    '''
+    
     
     resume_cpt = getattr(args, 'RESUME_CHECKPOINT', False)
     if not resume_cpt:
@@ -33,9 +30,7 @@ def resume_from_cpt(args, model:nn.Module, optimizer:torch.optim.Optimizer):
 
 
 def concat_obj_info(batch, device = 'cuda'):
-    '''
-    从一个 batch 中得到所有物体表征并拼接
-    '''
+    
     body_beta = batch['betas'].squeeze().to(device)
     bs, seq = body_beta.shape[:2]
     lhand_label = batch['lh_labels'].to(device).reshape(bs, seq, -1)    
@@ -66,7 +61,7 @@ def concat_obj_info(batch, device = 'cuda'):
     return obj_info
 
 
-# 加入了新的物体信息
+
 def get_obj_info(batch, needed_info: list, device: str = 'cuda'):
     body_beta = batch['betas'].squeeze()
     bs, seq = body_beta.shape[:2]
